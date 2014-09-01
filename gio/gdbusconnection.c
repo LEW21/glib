@@ -5486,25 +5486,22 @@ register_with_closures_on_set_property (GDBusConnection *connection,
 }
 
 /**
- * g_dbus_connection_register_object_with_closures:
+ * g_dbus_connection_register_object_with_closures: (rename-to g_dbus_connection_register_object)
  * @connection: A #GDBusConnection.
  * @object_path: The object path to register at.
  * @interface_info: Introspection data for the interface.
- * @vtable: (array fixed-size=3): #GClosure array with the vtable handlers
+ * @method_call_closure: (allow-none): #GClosure for handling incoming method calls.
+ * @get_property_closure: (allow-none): #GClosure for getting a property.
+ * @set_property_closure: (allow-none): #GClosure for setting a property.
  * @error: Return location for error or %NULL.
  *
  * Version of g_dbus_connection_register_object() using closures instead of a
  * #GDBusInterfaceVTable for easier binding in other languages.
  *
- * Instead passing a #GDBusInterfaceVTable struct, this gets an array of
- * #GClosure objects in the same order as in #GDBusInterfaceVTable:
- * [method_call_closure, get_property_closure, set_property_closure). The array
- * must contain exactly three items.
- *
  * Returns: 0 if @error is set, otherwise a registration id (never 0)
  * that can be used with g_dbus_connection_unregister_object() .
  *
- * Since: 2.30
+ * Since: 2.42
  */
 guint
 g_dbus_connection_register_object_with_closures (GDBusConnection      *connection,
