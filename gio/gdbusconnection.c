@@ -5278,6 +5278,129 @@ g_dbus_connection_unregister_object (GDBusConnection *connection,
   return ret;
 }
 
+typedef struct _RegisterObjectData {
+  GClosure             *method_call_closure;
+  GClosure             *get_property_closure;
+  GClosure             *set_property_closure;
+  GDBusInterfaceVTable *vtable;
+};
+
+static void
+register_object_with_closures_free_func (gpointer user_data)
+{
+  struct _RegisterObjectData *data = user_data;
+
+  if (data->method_call_closure != NULL)
+    g_closure_unref (data->method_call_closure);
+  if (data->get_property_closure != NULL)
+    g_closure_unref (data->get_property_closure);
+  if (data->set_property_closure != NULL)
+    g_closure_unref (data->set_property_closure);
+
+  g_slice_free (struct _RegisterObjectData, data);
+}
+
+static
+void
+register_object_with_closures_method_call_func (GDBusConnection       *connection,
+                                                const gchar           *sender,
+                                                const gchar           *object_path,
+                                                const gchar           *interface_name,
+                                                const gchar           *method_name,
+                                                GVariant              *parameters,
+                                                GDBusMethodInvocation *invocation,
+                                                gpointer               user_data)
+{
+  struct _RegisterObjectData *data = user_data;
+  GValue params[] = { {0,}, {0,}, {0,}, {0,}, {0,}, {0,}, {0,} };
+
+  g_value_init (&params[0], G_TYPE_DBUS_CONNECTION);
+  g_value_set_object (&params[0], connection);
+
+  g_value_init (&params[1], G_TYPE_STRING);
+  g_value_set_string (&params[1], sender);
+
+  g_value_init (&params[2], G_TYPE_STRING);
+  g_value_set_string (&params[2], object_path);
+
+  g_value_init (&params[3], G_TYPE_STRING);
+  g_value_set_string (&params[3], interface_name);
+
+  g_value_init (&params[4], G_TYPE_STRING);
+  g_value_set_string (&params[4], method_name);
+
+  g_value_init (&params[5], G_TYPE_VARIANT);
+  g_value_set_variant (&params[5], parameters);
+
+  g_value_init (&params[6], G_TYPE_DBUS_METHOD_INVOCATION);
+  g_value_set_object (&params[6], invocation);
+
+  g_warning("XXX register_object_with_closures_method_call_func %s %s", method_name, g_variant_get_type_string (parameters));
+
+  g_closure_invoke (data->method_call_closure, NULL, sizeof (params), params, NULL);
+}
+
+
+/**
+ * g_dbus_connection_register_object_with_closures:
+ * @connection: A #GDBusConnection.
+ * @object_path: The object path to register at.
+ * @interface_info: Introspection data for the interface.
+ * @vtable: (array fixed-size=3): #GClosure array with the vtable handlers
+ * @error: Return location for error or %NULL.
+ *
+ * Version of g_dbus_connection_register_object() using closures instead of a
+ * #GDBusInterfaceVTable for easier binding in other languages.
+ *
+ * Instead passing a #GDBusInterfaceVTable struct, this gets an array of
+ * #GClosure objects in the same order as in #GDBusInterfaceVTable:
+ * [method_call_closure, get_property_closure, set_property_closure). The array
+ * must contain exactly three items.
+ *
+ * Returns: 0 if @error is set, otherwise a registration id (never 0)
+ * that can be used with g_dbus_connection_unregister_object() .
+ *
+ * Since: 2.30
+ */
+guint
+g_dbus_connection_register_object_with_closures (GDBusConnection      *connection,
+                                                 const gchar          *object_path,
+                                                 GDBusInterfaceInfo   *interface_info,
+                                                 GClosure            **vtable,
+                                                 GError              **error)
+{
+    struct _RegisterObjectData *data;
+
+    data = g_slice_new0 (struct _RegisterObjectData);
+    data->vtable = g_slice_new0 (GDBusInterfaceVTable);
+
+    if (vtable[0] != NULL)
+      {
+        data->vtable->method_call = register_object_with_closures_method_call_func;
+        data->method_call_closure = g_closure_ref (vtable[0]);
+      }
+
+    if (vtable[1] != NULL)
+      {
+        //data->vtable->get_property = register_object_with_closures_get_property_func;
+        data->get_property_closure = g_closure_ref (vtable[1]);
+      }
+
+    if (vtable[2] != NULL)
+      {
+        //data->vtable->set_property = register_object_with_closures_set_property_func;
+        data->set_property_closure = g_closure_ref (vtable[2]);
+      }
+
+    return g_dbus_connection_register_object (connection,
+            object_path,
+            interface_info,
+            data->vtable,
+            data,
+            register_object_with_closures_free_func,
+            error);
+}
+
 /* ---------------------------------------------------------------------------------------------------- */
 
 /**
