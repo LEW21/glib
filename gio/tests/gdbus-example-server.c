@@ -327,12 +327,12 @@ on_bus_acquired (GDBusConnection *connection,
 {
   guint registration_id;
 
-  registration_id = g_dbus_connection_register_object (connection,
+  registration_id = g_dbus_connection_register_object_with_closures (connection,
                                                        "/org/gtk/GDBus/TestObject",
                                                        introspection_data->interfaces[0],
-                                                       &interface_vtable,
-                                                       NULL,  /* user_data */
-                                                       NULL,  /* user_data_free_func */
+                                                       g_cclosure_new(G_CALLBACK(handle_method_call), NULL, NULL),
+                                                       g_cclosure_new(G_CALLBACK(handle_get_property), NULL, NULL),
+                                                       g_cclosure_new(G_CALLBACK(handle_set_property), NULL, NULL),
                                                        NULL); /* GError** */
   g_assert (registration_id > 0);
 
