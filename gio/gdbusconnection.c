@@ -5396,6 +5396,12 @@ register_with_closures_on_get_property (GDBusConnection *connection,
   GValue result_value = G_VALUE_INIT;
   GVariant *result;
 
+  GVariant *res;
+  gboolean has_error;
+  guint32 domain;
+  gint32 code;
+  gchar *message;
+
   g_value_init (&params[0], G_TYPE_DBUS_CONNECTION);
   g_value_set_object (&params[0], connection);
 
@@ -5416,8 +5422,7 @@ register_with_closures_on_get_property (GDBusConnection *connection,
   g_closure_invoke (data->get_property_closure, &result_value, sizeof(params)/sizeof(GValue), params, NULL);
 
   result = g_value_get_variant (&result_value);
-  if (result)
-    g_variant_ref(result);
+  g_variant_ref(result);
 
   g_value_unset (params + 0);
   g_value_unset (params + 1);
@@ -5426,10 +5431,22 @@ register_with_closures_on_get_property (GDBusConnection *connection,
   g_value_unset (params + 4);
   g_value_unset (&result_value);
 
-  if (!result)
-    g_set_error (error, G_DBUS_ERROR, G_DBUS_ERROR_FAILED, "Getting %s.%s property failed.", interface_name, property_name);
+  g_assert (g_variant_classify (result) == G_VARIANT_CLASS_TUPLE);
+  g_assert (g_variant_n_children (result) == 2);
 
-  return result;
+  g_variant_get (result, "(mvm(uis))", &res, &has_error, &domain, &code, &message);
+  g_variant_unref (result);
+
+  g_assert (res || has_error);
+  g_assert (!(res && has_error));
+
+  if (has_error)
+    g_set_error_literal (error, domain, code, message);
+
+//  if (has_error)
+//    g_warning("%s %d %s", g_quark_to_string((*error)->domain), (int) (*error)->code, (*error)->message);
+
+  return res;
 }
 
 static gboolean
@@ -5445,7 +5462,13 @@ register_with_closures_on_set_property (GDBusConnection *connection,
   RegisterObjectData *data = user_data;
   GValue params[] = { G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT };
   GValue result_value = G_VALUE_INIT;
-  gboolean result;
+  GVariant *result;
+
+  gboolean res;
+  gboolean has_error;
+  guint32 domain;
+  gint32 code;
+  gchar *message;
 
   g_value_init (&params[0], G_TYPE_DBUS_CONNECTION);
   g_value_set_object (&params[0], connection);
@@ -5465,11 +5488,12 @@ register_with_closures_on_set_property (GDBusConnection *connection,
   g_value_init (&params[5], G_TYPE_VARIANT);
   g_value_set_variant (&params[5], value);
 
-  g_value_init (&result_value, G_TYPE_BOOLEAN);
+  g_value_init (&result_value, G_TYPE_VARIANT);
 
   g_closure_invoke (data->set_property_closure, &result_value, sizeof(params)/sizeof(GValue), params, NULL);
 
-  result = g_value_get_boolean (&result_value);
+  result = g_value_get_variant (&result_value);
+  g_variant_ref(result);
 
   g_value_unset (params + 0);
   g_value_unset (params + 1);
@@ -5479,10 +5503,22 @@ register_with_closures_on_set_property (GDBusConnection *connection,
   g_value_unset (params + 5);
   g_value_unset (&result_value);
 
-  if (!result)
-    g_set_error (error, G_DBUS_ERROR, G_DBUS_ERROR_FAILED, "Setting %s.%s property failed.", interface_name, property_name);
+  g_assert (g_variant_classify (result) == G_VARIANT_CLASS_TUPLE);
+  g_assert (g_variant_n_children (result) == 2);
 
-  return result;
+  g_variant_get (result, "(bm(uis))", &res, &has_error, &domain, &code, &message);
+  g_variant_unref (result);
+
+  g_assert (res || has_error);
+  g_assert (!(res && has_error));
+
+  if (has_error)
+    g_set_error_literal (error, domain, code, message);
+
+//  if (has_error)
+//    g_warning("%s %d %s", g_quark_to_string((*error)->domain), (int) (*error)->code, (*error)->message);
+
+  return res;
 }
 
 /**

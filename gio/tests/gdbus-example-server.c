@@ -210,10 +210,10 @@ handle_get_property (GDBusConnection  *connection,
       ret = g_variant_new_string (swap_a_and_b ? "Tick" : "Tock");
     }
 
-  return ret;
+  return g_variant_new("(mvm(uis))", ret, error, error ? error->domain : 0, error ? error->code : 0, error ? error->message : NULL);
 }
 
-static gboolean
+static GVariant *
 handle_set_property (GDBusConnection  *connection,
                      const gchar      *sender,
                      const gchar      *object_path,
@@ -266,7 +266,7 @@ handle_set_property (GDBusConnection  *connection,
                    sender);
     }
 
-  return error == NULL;
+  return g_variant_new("(bm(uis))", error == NULL, error, error ? error->domain : 0, error ? error->code : 0, error ? error->message : NULL);
 }
 
 /* ---------------------------------------------------------------------------------------------------- */
