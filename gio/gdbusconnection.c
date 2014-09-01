@@ -5366,7 +5366,9 @@ guint
 g_dbus_connection_register_object_with_closures (GDBusConnection      *connection,
                                                  const gchar          *object_path,
                                                  GDBusInterfaceInfo   *interface_info,
-                                                 GClosure            **vtable,
+                                                 GClosure             *method_call_closure,
+                                                 GClosure             *get_property_closure,
+                                                 GClosure             *set_property_closure,
                                                  GError              **error)
 {
     struct _RegisterObjectData *data;
@@ -5374,22 +5376,22 @@ g_dbus_connection_register_object_with_closures (GDBusConnection      *connectio
     data = g_slice_new0 (struct _RegisterObjectData);
     data->vtable = g_slice_new0 (GDBusInterfaceVTable);
 
-    if (vtable[0] != NULL)
+    if (method_call_closure != NULL)
       {
         data->vtable->method_call = register_object_with_closures_method_call_func;
-        data->method_call_closure = g_closure_ref (vtable[0]);
+        data->method_call_closure = g_closure_ref (method_call_closure);
       }
 
-    if (vtable[1] != NULL)
+    if (get_property_closure != NULL)
       {
         //data->vtable->get_property = register_object_with_closures_get_property_func;
-        data->get_property_closure = g_closure_ref (vtable[1]);
+        data->get_property_closure = g_closure_ref (get_property_closure);
       }
 
-    if (vtable[2] != NULL)
+    if (set_property_closure != NULL)
       {
         //data->vtable->set_property = register_object_with_closures_set_property_func;
-        data->set_property_closure = g_closure_ref (vtable[2]);
+        data->set_property_closure = g_closure_ref (set_property_closure);
       }
 
     return g_dbus_connection_register_object (connection,
