@@ -395,7 +395,9 @@ GLIB_AVAILABLE_IN_ALL
 guint            g_dbus_connection_register_object_with_closures (GDBusConnection         *connection,
                                                                   const gchar             *object_path,
                                                                   GDBusInterfaceInfo      *interface_info,
-                                                                  GClosure               **vtable,
+                                                                  GClosure                *method_call_closure,
+                                                                  GClosure                *get_property_closure,
+                                                                  GClosure                *set_property_closure,
                                                                   GError                 **error);
 GLIB_AVAILABLE_IN_ALL
 gboolean         g_dbus_connection_unregister_object          (GDBusConnection            *connection,
