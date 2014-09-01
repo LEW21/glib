@@ -5321,7 +5321,7 @@ register_object_data_new (GClosure *method_call_closure,
 }
 
 static void
-register_object_with_closures_free_func (gpointer user_data)
+register_object_free_func (gpointer user_data)
 {
   RegisterObjectData *data = user_data;
 
@@ -5338,14 +5338,14 @@ register_object_with_closures_free_func (gpointer user_data)
 }
 
 static void
-register_object_with_closures_method_call_func (GDBusConnection *connection,
-                                                const gchar           *sender,
-                                                const gchar           *object_path,
-                                                const gchar           *interface_name,
-                                                const gchar           *method_name,
-                                                GVariant              *parameters,
-                                                GDBusMethodInvocation *invocation,
-                                                gpointer               user_data)
+register_with_closures_on_method_call (GDBusConnection       *connection,
+                                       const gchar           *sender,
+                                       const gchar           *object_path,
+                                       const gchar           *interface_name,
+                                       const gchar           *method_name,
+                                       GVariant              *parameters,
+                                       GDBusMethodInvocation *invocation,
+                                       gpointer               user_data)
 {
   RegisterObjectData *data = user_data;
   GValue params[] = { G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT };
@@ -5371,8 +5371,6 @@ register_object_with_closures_method_call_func (GDBusConnection *connection,
   g_value_init (&params[6], G_TYPE_DBUS_METHOD_INVOCATION);
   g_value_set_object (&params[6], invocation);
 
-  g_warning("XXX register_object_with_closures_method_call_func %s %s", method_name, g_variant_get_type_string (parameters));
-
   g_closure_invoke (data->method_call_closure, NULL, sizeof(params)/sizeof(GValue), params, NULL);
 
   g_value_unset (params + 0);
@@ -5382,6 +5380,109 @@ register_object_with_closures_method_call_func (GDBusConnection *connection,
   g_value_unset (params + 4);
   g_value_unset (params + 5);
   g_value_unset (params + 6);
+}
+
+static GVariant *
+register_with_closures_on_get_property (GDBusConnection *connection,
+                                        const gchar     *sender,
+                                        const gchar     *object_path,
+                                        const gchar     *interface_name,
+                                        const gchar     *property_name,
+                                        GError         **error,
+                                        gpointer         user_data)
+{
+  RegisterObjectData *data = user_data;
+  GValue params[] = { G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT };
+  GValue result_value = G_VALUE_INIT;
+  GVariant *result;
+
+  g_value_init (&params[0], G_TYPE_DBUS_CONNECTION);
+  g_value_set_object (&params[0], connection);
+
+  g_value_init (&params[1], G_TYPE_STRING);
+  g_value_set_string (&params[1], sender);
+
+  g_value_init (&params[2], G_TYPE_STRING);
+  g_value_set_string (&params[2], object_path);
+
+  g_value_init (&params[3], G_TYPE_STRING);
+  g_value_set_string (&params[3], interface_name);
+
+  g_value_init (&params[4], G_TYPE_STRING);
+  g_value_set_string (&params[4], property_name);
+
+  g_value_init (&result_value, G_TYPE_VARIANT);
+
+  g_closure_invoke (data->get_property_closure, &result_value, sizeof(params)/sizeof(GValue), params, NULL);
+
+  result = g_value_get_variant (&result_value);
+  if (result)
+    g_variant_ref(result);
+
+  g_value_unset (params + 0);
+  g_value_unset (params + 1);
+  g_value_unset (params + 2);
+  g_value_unset (params + 3);
+  g_value_unset (params + 4);
+  g_value_unset (&result_value);
+
+  if (!result)
+    g_set_error (error, G_DBUS_ERROR, G_DBUS_ERROR_FAILED, "Getting %s.%s property failed.", interface_name, property_name);
+
+  return result;
+}
+
+static gboolean
+register_with_closures_on_set_property (GDBusConnection *connection,
+                                        const gchar     *sender,
+                                        const gchar     *object_path,
+                                        const gchar     *interface_name,
+                                        const gchar     *property_name,
+                                        GVariant        *value,
+                                        GError         **error,
+                                        gpointer         user_data)
+{
+  RegisterObjectData *data = user_data;
+  GValue params[] = { G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT };
+  GValue result_value = G_VALUE_INIT;
+  gboolean result;
+
+  g_value_init (&params[0], G_TYPE_DBUS_CONNECTION);
+  g_value_set_object (&params[0], connection);
+
+  g_value_init (&params[1], G_TYPE_STRING);
+  g_value_set_string (&params[1], sender);
+
+  g_value_init (&params[2], G_TYPE_STRING);
+  g_value_set_string (&params[2], object_path);
+
+  g_value_init (&params[3], G_TYPE_STRING);
+  g_value_set_string (&params[3], interface_name);
+
+  g_value_init (&params[4], G_TYPE_STRING);
+  g_value_set_string (&params[4], property_name);
+
+  g_value_init (&params[5], G_TYPE_VARIANT);
+  g_value_set_variant (&params[5], value);
+
+  g_value_init (&result_value, G_TYPE_BOOLEAN);
+
+  g_closure_invoke (data->set_property_closure, &result_value, sizeof(params)/sizeof(GValue), params, NULL);
+
+  result = g_value_get_boolean (&result_value);
+
+  g_value_unset (params + 0);
+  g_value_unset (params + 1);
+  g_value_unset (params + 2);
+  g_value_unset (params + 3);
+  g_value_unset (params + 4);
+  g_value_unset (params + 5);
+  g_value_unset (&result_value);
+
+  if (!result)
+    g_set_error (error, G_DBUS_ERROR, G_DBUS_ERROR_FAILED, "Setting %s.%s property failed.", interface_name, property_name);
+
+  return result;
 }
 
 /**
@@ -5418,9 +5519,9 @@ g_dbus_connection_register_object_with_closures (GDBusConnection      *connectio
 
     GDBusInterfaceVTable vtable =
     {
-      method_call_closure != NULL ? register_object_with_closures_method_call_func : NULL,
-      NULL,
-      NULL
+      method_call_closure != NULL  ? register_with_closures_on_method_call  : NULL,
+      get_property_closure != NULL ? register_with_closures_on_get_property : NULL,
+      set_property_closure != NULL ? register_with_closures_on_set_property : NULL
     };
 
     return g_dbus_connection_register_object (connection,
@@ -5428,7 +5529,7 @@ g_dbus_connection_register_object_with_closures (GDBusConnection      *connectio
             interface_info,
             &vtable,
             data,
-            register_object_with_closures_free_func,
+            register_object_free_func,
             error);
 }
 

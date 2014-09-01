@@ -173,12 +173,11 @@ handle_get_property (GDBusConnection  *connection,
                      const gchar      *object_path,
                      const gchar      *interface_name,
                      const gchar      *property_name,
-                     GError          **error,
                      gpointer          user_data)
 {
-  GVariant *ret;
+  GError *error = NULL;
+  GVariant *ret = NULL;
 
-  ret = NULL;
   if (g_strcmp0 (property_name, "FluxCapicitorName") == 0)
     {
       ret = g_variant_new_string ("DeLorean");
@@ -191,7 +190,7 @@ handle_get_property (GDBusConnection  *connection,
     }
   else if (g_strcmp0 (property_name, "ReadingAlwaysThrowsError") == 0)
     {
-      g_set_error (error,
+      g_set_error (&error,
                    G_IO_ERROR,
                    G_IO_ERROR_FAILED,
                    "Hello %s. I thought I said reading this property "
@@ -221,9 +220,9 @@ handle_set_property (GDBusConnection  *connection,
                      const gchar      *interface_name,
                      const gchar      *property_name,
                      GVariant         *value,
-                     GError          **error,
                      gpointer          user_data)
 {
+  GError *error = NULL;
   if (g_strcmp0 (property_name, "Title") == 0)
     {
       if (g_strcmp0 (_global_title, g_variant_get_string (value, NULL)) != 0)
@@ -259,7 +258,7 @@ handle_set_property (GDBusConnection  *connection,
     }
   else if (g_strcmp0 (property_name, "WritingAlwaysThrowsError") == 0)
     {
-      g_set_error (error,
+      g_set_error (&error,
                    G_IO_ERROR,
                    G_IO_ERROR_FAILED,
                    "Hello AGAIN %s. I thought I said writing this property "
@@ -267,17 +266,8 @@ handle_set_property (GDBusConnection  *connection,
                    sender);
     }
 
-  return *error == NULL;
+  return error == NULL;
 }
-
-
-/* for now */
-static const GDBusInterfaceVTable interface_vtable =
-{
-  handle_method_call,
-  handle_get_property,
-  handle_set_property
-};
 
 /* ---------------------------------------------------------------------------------------------------- */
 
