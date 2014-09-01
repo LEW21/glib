@@ -5278,31 +5278,67 @@ g_dbus_connection_unregister_object (GDBusConnection *connection,
   return ret;
 }
 
-typedef struct _RegisterObjectData {
-  GClosure             *method_call_closure;
-  GClosure             *get_property_closure;
-  GClosure             *set_property_closure;
-  GDBusInterfaceVTable *vtable;
-};
+typedef struct {
+  GClosure *method_call_closure;
+  GClosure *get_property_closure;
+  GClosure *set_property_closure;
+} RegisterObjectData;
+
+static RegisterObjectData *
+register_object_data_new (GClosure *method_call_closure,
+                     GClosure *get_property_closure,
+                     GClosure *set_property_closure)
+{
+  RegisterObjectData *data;
+
+  data = g_new0 (RegisterObjectData, 1);
+
+  if (method_call_closure != NULL)
+    {
+      data->method_call_closure = g_closure_ref (method_call_closure);
+      g_closure_sink (method_call_closure);
+      if (G_CLOSURE_NEEDS_MARSHAL (method_call_closure))
+        g_closure_set_marshal (method_call_closure, g_cclosure_marshal_generic);
+    }
+
+  if (get_property_closure != NULL)
+    {
+      data->get_property_closure = g_closure_ref (get_property_closure);
+      g_closure_sink (get_property_closure);
+      if (G_CLOSURE_NEEDS_MARSHAL (get_property_closure))
+        g_closure_set_marshal (get_property_closure, g_cclosure_marshal_generic);
+    }
+
+  if (set_property_closure != NULL)
+    {
+      data->set_property_closure = g_closure_ref (set_property_closure);
+      g_closure_sink (set_property_closure);
+      if (G_CLOSURE_NEEDS_MARSHAL (set_property_closure))
+        g_closure_set_marshal (set_property_closure, g_cclosure_marshal_generic);
+    }
+
+  return data;
+}
 
 static void
 register_object_with_closures_free_func (gpointer user_data)
 {
-  struct _RegisterObjectData *data = user_data;
+  RegisterObjectData *data = user_data;
 
   if (data->method_call_closure != NULL)
     g_closure_unref (data->method_call_closure);
+
   if (data->get_property_closure != NULL)
     g_closure_unref (data->get_property_closure);
+
   if (data->set_property_closure != NULL)
     g_closure_unref (data->set_property_closure);
 
-  g_slice_free (struct _RegisterObjectData, data);
+  g_free (data);
 }
 
-static
-void
-register_object_with_closures_method_call_func (GDBusConnection       *connection,
+static void
+register_object_with_closures_method_call_func (GDBusConnection *connection,
                                                 const gchar           *sender,
                                                 const gchar           *object_path,
                                                 const gchar           *interface_name,
@@ -5311,8 +5347,8 @@ register_object_with_closures_method_call_func (GDBusConnection       *connectio
                                                 GDBusMethodInvocation *invocation,
                                                 gpointer               user_data)
 {
-  struct _RegisterObjectData *data = user_data;
-  GValue params[] = { {0,}, {0,}, {0,}, {0,}, {0,}, {0,}, {0,} };
+  RegisterObjectData *data = user_data;
+  GValue params[] = { G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT };
 
   g_value_init (&params[0], G_TYPE_DBUS_CONNECTION);
   g_value_set_object (&params[0], connection);
@@ -5337,9 +5373,16 @@ register_object_with_closures_method_call_func (GDBusConnection       *connectio
 
   g_warning("XXX register_object_with_closures_method_call_func %s %s", method_name, g_variant_get_type_string (parameters));
 
-  g_closure_invoke (data->method_call_closure, NULL, sizeof (params), params, NULL);
-}
+  g_closure_invoke (data->method_call_closure, NULL, sizeof(params)/sizeof(GValue), params, NULL);
 
+  g_value_unset (params + 0);
+  g_value_unset (params + 1);
+  g_value_unset (params + 2);
+  g_value_unset (params + 3);
+  g_value_unset (params + 4);
+  g_value_unset (params + 5);
+  g_value_unset (params + 6);
+}
 
 /**
  * g_dbus_connection_register_object_with_closures:
@@ -5371,33 +5414,19 @@ g_dbus_connection_register_object_with_closures (GDBusConnection      *connectio
                                                  GClosure             *set_property_closure,
                                                  GError              **error)
 {
-    struct _RegisterObjectData *data;
+    RegisterObjectData *data = register_object_data_new(method_call_closure, get_property_closure, set_property_closure);
 
-    data = g_slice_new0 (struct _RegisterObjectData);
-    data->vtable = g_slice_new0 (GDBusInterfaceVTable);
-
-    if (method_call_closure != NULL)
-      {
-        data->vtable->method_call = register_object_with_closures_method_call_func;
-        data->method_call_closure = g_closure_ref (method_call_closure);
-      }
-
-    if (get_property_closure != NULL)
-      {
-        //data->vtable->get_property = register_object_with_closures_get_property_func;
-        data->get_property_closure = g_closure_ref (get_property_closure);
-      }
-
-    if (set_property_closure != NULL)
-      {
-        //data->vtable->set_property = register_object_with_closures_set_property_func;
-        data->set_property_closure = g_closure_ref (set_property_closure);
-      }
+    GDBusInterfaceVTable vtable =
+    {
+      method_call_closure != NULL ? register_object_with_closures_method_call_func : NULL,
+      NULL,
+      NULL
+    };
 
     return g_dbus_connection_register_object (connection,
             object_path,
             interface_info,
-            data->vtable,
+            &vtable,
             data,
             register_object_with_closures_free_func,
             error);
